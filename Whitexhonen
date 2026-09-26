@@ -1,0 +1,1537 @@
+local Update = {}
+
+-- Theme setup (safe defaults)
+local function applyTheme()
+    local theme = _G.Theme
+    if theme == 'Red' then
+        _G.Primary = Color3.fromRGB(255, 30, 50)
+        _G.Dark = Color3.fromRGB(90, 10, 20)
+    elseif theme == 'Cyan' then
+        _G.Primary = Color3.fromRGB(40, 230, 255)
+        _G.Dark = Color3.fromRGB(10, 80, 115)
+    elseif theme == 'Blue' then
+        _G.Primary = Color3.fromRGB(40, 155, 255)
+        _G.Dark = Color3.fromRGB(10, 80, 115)
+    elseif theme == 'DarkBlue' then
+        _G.Primary = Color3.fromRGB(50, 30, 255)
+        _G.Dark = Color3.fromRGB(20, 10, 90)
+    elseif theme == 'Green' then
+        _G.Primary = Color3.fromRGB(70, 255, 205)
+        _G.Dark = Color3.fromRGB(20, 90, 90)
+    elseif theme == 'LightGreen' then
+        _G.Primary = Color3.fromRGB(205, 255, 205)
+        _G.Dark = Color3.fromRGB(70, 90, 70)
+    elseif theme == 'Purple' then
+        _G.Primary = Color3.fromRGB(205, 125, 255)
+        _G.Dark = Color3.fromRGB(60, 20, 95)
+    elseif theme == 'Zinc' then
+        _G.Primary = Color3.fromRGB(30, 30, 30)
+        _G.Dark = Color3.fromRGB(10, 10, 10)
+    else
+        _G.Primary = Color3.fromRGB(110, 110, 120)
+        _G.Dark = Color3.fromRGB(20, 20, 30)
+        if not _G.Theme then
+            warn("Theme not found, using default")
+        end
+    end
+end
+applyTheme()
+
+-- Services
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local TextService = game:GetService("TextService")
+
+-- Small floating toggle icon (top-left)
+local function createToggleIcon()
+    if CoreGui:FindFirstChild("Whitexhonen hub_TOGGLE") then
+        CoreGui.Whitexhonen hub_TOGGLE:Destroy()
+    end
+
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "Whitexhonen hub_TOGGLE"
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.Parent = CoreGui
+
+    local btn = Instance.new("ImageButton")
+    btn.Parent = gui
+    btn.Position = UDim2.new(0, 10, 0, 10)
+    btn.Size = UDim2.new(0, 50, 0, 50)
+    btn.Draggable = true
+    btn.BackgroundColor3 = _G.Dark
+    btn.ImageColor3 = _G.Primary
+    btn.ImageTransparency = 0.1
+    btn.BackgroundTransparency = 1
+    btn.Image = 'https://www.roblox.com/Thumbs/Asset.ashx?width=420&height=420&assetId=89080043654016'
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = _G.Primary
+    stroke.Thickness = 1
+    stroke.Parent = btn
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 5)
+    corner.Parent = btn
+
+    btn.MouseButton1Click:Connect(function()
+        local hub = CoreGui:FindFirstChild("Whitexhonen hub")
+        if hub and hub:IsA("ScreenGui") then
+            hub.Enabled = not hub.Enabled
+        end
+    end)
+end
+createToggleIcon()
+
+-- Draggable helper
+local function makeDraggable(hitArea, target)
+    local dragging = false
+    local dragStart, startPos, lastInput
+
+    local function update(input)
+        local delta = input.Position - dragStart
+        local newPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        TweenService:Create(target, TweenInfo.new(0.15), {Position = newPos}):Play()
+    end
+
+    hitArea.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = target.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    hitArea.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            lastInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == lastInput and dragging then
+            update(input)
+        end
+    end)
+end
+
+-- Main factory
+function Update:Window(patchText)
+    -- cleanup any previous GUIs
+    if CoreGui:FindFirstChild("Whitexhonen hub") then CoreGui.Whitexhonen hub:Destroy() end
+    if CoreGui:FindFirstChild("Whitexhonen hub_ALERT") then CoreGui.Whitexhonen hub_ALERT:Destroy() end
+
+    local alertGui = Instance.new("ScreenGui")
+    alertGui.Name = "Whitexhonen hub_ALERT"
+    alertGui.Parent = CoreGui
+    alertGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+
+    local hubGui = Instance.new("ScreenGui")
+    hubGui.Name = "Whitexhonen hub"
+    hubGui.Parent = CoreGui
+    hubGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+
+    -- main window
+    local main = Instance.new("Frame")
+    main.Name = "Main"
+    main.Parent = hubGui
+    main.AnchorPoint = Vector2.new(0.5, 0.5)
+    main.ClipsDescendants = true
+    main.BackgroundColor3 = _G.Dark
+    main.BackgroundTransparency = 0.1
+    main.Position = UDim2.new(0.5, 0, 0.5, 0)
+    main.Size = UDim2.new(0, 0, 0, 0)
+    main:TweenSize(UDim2.new(0, 524, 0, 332), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.4, true)
+
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = _G.Primary
+    mainStroke.Thickness = 1
+    mainStroke.Parent = main
+
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 5)
+    mainCorner.Parent = main
+
+    -- resize grip
+    local resizeGrip = Instance.new("Frame")
+    resizeGrip.Name = "DragButton"
+    resizeGrip.Parent = main
+    resizeGrip.Position = UDim2.new(1, 5, 1, 5)
+    resizeGrip.AnchorPoint = Vector2.new(1, 1)
+    resizeGrip.Size = UDim2.new(0, 15, 0, 15)
+    resizeGrip.BackgroundColor3 = _G.Primary
+    resizeGrip.BackgroundTransparency = 0.1
+    resizeGrip.ZIndex = 10
+    local gripCorner = Instance.new("UICorner")
+    gripCorner.CornerRadius = UDim.new(0, 99)
+    gripCorner.Parent = resizeGrip
+
+    -- top bar & title
+    local topBar = Instance.new("Frame")
+    topBar.Name = "Top"
+    topBar.Parent = main
+    topBar.BackgroundTransparency = 1
+    topBar.Size = UDim2.new(1, 0, 0, 40)
+    local topCorner = Instance.new("UICorner")
+    topCorner.CornerRadius = UDim.new(0, 5)
+    topCorner.Parent = topBar
+
+    local title = Instance.new("TextLabel")
+    title.Name = "ttittles"
+    title.Parent = topBar
+    title.BackgroundTransparency = 1
+    title.Position = UDim2.new(0, 15, 0.5, 0)
+    title.AnchorPoint = Vector2.new(0, 0.5)
+    title.Font = Enum.Font.GothamBold
+    title.Text = "Szoo PAID |"
+    title.TextSize = 15
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    local titleSize = TextService:GetTextSize(title.Text, title.TextSize, title.Font, Vector2.new(1e6, 1e6))
+    title.Size = UDim2.new(0, titleSize.X, 0, 25)
+
+    local patchLabel = Instance.new("TextLabel")
+    patchLabel.Name = "patch"
+    patchLabel.Parent = title
+    patchLabel.BackgroundTransparency = 1
+    patchLabel.Position = UDim2.new(1, 5, 0.5, 0)
+    patchLabel.AnchorPoint = Vector2.new(0, 0.5)
+    patchLabel.Font = Enum.Font.Gotham
+    patchLabel.Text = tostring(patchText or "")
+    patchLabel.TextSize = 15
+    patchLabel.TextColor3 = _G.Primary
+    local patchSize = TextService:GetTextSize(patchLabel.Text, patchLabel.TextSize, patchLabel.Font, Vector2.new(1e6, 1e6))
+    patchLabel.Size = UDim2.new(0, patchSize.X, 0, 25)
+
+    local hideBtn = Instance.new("ImageButton")
+    hideBtn.Name = "Hide"
+    hideBtn.Parent = topBar
+    hideBtn.AnchorPoint = Vector2.new(1, 0.5)
+    hideBtn.Position = UDim2.new(1, -10, 0.5, 0)
+    hideBtn.Size = UDim2.new(0, 25, 0, 25)
+    hideBtn.BackgroundTransparency = 1
+    hideBtn.Image = 'https://www.roblox.com/Thumbs/Asset.ashx?width=420&height=420&assetId=89080043654016'
+    hideBtn.ImageColor3 = Color3.fromRGB(245, 245, 245)
+    local hideCorner = Instance.new("UICorner")
+    hideCorner.CornerRadius = UDim.new(0, 3)
+    hideCorner.Parent = hideBtn
+    hideBtn.MouseButton1Click:Connect(function() hubGui.Enabled = not hubGui.Enabled end)
+
+    -- Transparency toggle button (turn off transparency)
+    local transparencyOff = false
+    local savedTransparencies = {}
+
+    local function setTransparencyOff(off)
+        if off then
+            -- Save current transparencies and set to opaque (0)
+            savedTransparencies = {}
+            for _, inst in pairs(hubGui:GetDescendants()) do
+                if inst:IsA("GuiObject") then
+                    -- save/restore via keys; use pcall to avoid errors for unexpected objects
+                    local entry = {}
+                    pcall(function() entry.BackgroundTransparency = inst.BackgroundTransparency end)
+                    pcall(function() entry.TextTransparency = inst.TextTransparency end)
+                    pcall(function() entry.ImageTransparency = inst.ImageTransparency end)
+                    savedTransparencies[inst] = entry
+                    pcall(function() inst.BackgroundTransparency = 0 end)
+                    pcall(function() inst.TextTransparency = 0 end)
+                    pcall(function() inst.ImageTransparency = 0 end)
+                end
+            end
+        else
+            -- Restore
+            for inst, vals in pairs(savedTransparencies) do
+                if inst and inst.Parent then
+                    pcall(function()
+                        if vals.BackgroundTransparency ~= nil then inst.BackgroundTransparency = vals.BackgroundTransparency end
+                        if vals.TextTransparency ~= nil then inst.TextTransparency = vals.TextTransparency end
+                        if vals.ImageTransparency ~= nil then inst.ImageTransparency = vals.ImageTransparency end
+                    end)
+                end
+            end
+            savedTransparencies = {}
+        end
+    end
+
+    local transparencyBtn = Instance.new("TextButton")
+    transparencyBtn.Name = "TransparencyToggle"
+    transparencyBtn.Parent = topBar
+    transparencyBtn.AnchorPoint = Vector2.new(1, 0.5)
+    transparencyBtn.Position = UDim2.new(1, -42, 0.5, 0) -- left of hideBtn
+    transparencyBtn.Size = UDim2.new(0, 30, 0, 22)
+    transparencyBtn.BackgroundTransparency = 0.2
+    transparencyBtn.BackgroundColor3 = _G.Primary
+    transparencyBtn.Font = Enum.Font.GothamSemibold
+    transparencyBtn.TextSize = 10
+    transparencyBtn.Text = "OPA"
+    transparencyBtn.TextColor3 = Color3.fromRGB(245,245,245)
+    local tcorner = Instance.new("UICorner"); tcorner.CornerRadius = UDim.new(0,3); tcorner.Parent = transparencyBtn
+
+    transparencyBtn.MouseButton1Click:Connect(function()
+        transparencyOff = not transparencyOff
+        if transparencyOff then
+            transparencyBtn.Text = "OPN"
+            setTransparencyOff(true)
+        else
+            transparencyBtn.Text = "OPA"
+            setTransparencyOff(false)
+        end
+    end)
+
+    -- left tabs
+    local leftTabFrame = Instance.new("Frame")
+    leftTabFrame.Name = "Tab"
+    leftTabFrame.Parent = main
+    leftTabFrame.BackgroundTransparency = 1
+    leftTabFrame.Position = UDim2.new(0, 8, 0, 45)
+    leftTabFrame.Size = UDim2.new(0, 148, 0, 275)
+
+    local leftScroll = Instance.new("ScrollingFrame")
+    leftScroll.Name = "ScrollTab"
+    leftScroll.Parent = leftTabFrame
+    leftScroll.Active = true
+    leftScroll.BackgroundTransparency = 1
+    leftScroll.Size = UDim2.new(1, 0, 1, 0)
+    leftScroll.ScrollBarThickness = 0
+
+    local leftCorner = Instance.new("UICorner")
+    leftCorner.Parent = leftTabFrame
+    leftCorner.CornerRadius = UDim.new(0, 5)
+
+    local leftList = Instance.new("UIListLayout")
+    leftList.Parent = leftScroll
+    leftList.SortOrder = Enum.SortOrder.LayoutOrder
+    leftList.Padding = UDim.new(0, 2)
+
+    local leftPadding = Instance.new("UIPadding")
+    leftPadding.Parent = leftScroll
+
+    -- right pages
+    local rightPageFrame = Instance.new("Frame")
+    rightPageFrame.Name = "Page"
+    rightPageFrame.Parent = main
+    rightPageFrame.BackgroundTransparency = 1
+    rightPageFrame.Position = UDim2.new(0, 166, 0, 45)
+    rightPageFrame.Size = UDim2.new(0, 350, 0, 275)
+
+    local rightCorner = Instance.new("UICorner")
+    rightCorner.Parent = rightPageFrame
+    rightCorner.CornerRadius = UDim.new(0, 3)
+
+    local mainPage = Instance.new("Frame")
+    mainPage.Name = "MainPage"
+    mainPage.Parent = rightPageFrame
+    mainPage.BackgroundTransparency = 1
+    mainPage.ClipsDescendants = true
+    mainPage.Size = UDim2.new(1, 0, 1, 0)
+
+    local pageFolder = Instance.new("Folder")
+    pageFolder.Name = "PageList"
+    pageFolder.Parent = mainPage
+
+    local uiPageLayout = Instance.new("UIPageLayout")
+    uiPageLayout.Parent = pageFolder
+    uiPageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    uiPageLayout.EasingDirection = Enum.EasingDirection.InOut
+    uiPageLayout.EasingStyle = Enum.EasingStyle.Quad
+    uiPageLayout.FillDirection = Enum.FillDirection.Vertical
+    uiPageLayout.Padding = UDim.new(0, 10)
+    uiPageLayout.TweenTime = 0
+    uiPageLayout.GamepadInputEnabled = false
+    uiPageLayout.ScrollWheelInputEnabled = false
+    uiPageLayout.TouchInputEnabled = false
+
+    -- make draggable
+    makeDraggable(topBar, main)
+
+    -- Toggle visibility with Insert
+    UserInputService.InputBegan:Connect(function(input)
+        if input.KeyCode == Enum.KeyCode.Insert then
+            hubGui.Enabled = not hubGui.Enabled
+        end
+    end)
+
+    -- resize logic
+    local resizing = false
+    resizeGrip.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            resizing = true
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            resizing = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            main.Size = UDim2.new(0, math.clamp(input.Position.X - main.AbsolutePosition.X, 524, math.huge), 0, math.clamp(input.Position.Y - main.AbsolutePosition.Y, 332, math.huge))
+            rightPageFrame.Size = UDim2.new(0, math.clamp(input.Position.X - rightPageFrame.AbsolutePosition.X - 8, 350, math.huge), 0, math.clamp(input.Position.Y - rightPageFrame.AbsolutePosition.Y - 8, 270, math.huge))
+            leftTabFrame.Size = UDim2.new(0, 148, 0, math.clamp(input.Position.Y - leftTabFrame.AbsolutePosition.Y - 8, 270, math.huge))
+        end
+    end)
+
+    -- keep canvas sizes updated
+    RunService.Stepped:Connect(function()
+        pcall(function()
+            for _, p in pairs(pageFolder:GetChildren()) do
+                if p:IsA("ScrollingFrame") then
+                    local layout = p:FindFirstChildOfClass("UIListLayout")
+                    if layout then
+                        p.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
+                    end
+                end
+            end
+            leftScroll.CanvasSize = UDim2.new(0, 0, 0, leftList.AbsoluteContentSize.Y)
+        end)
+    end)
+
+    -- returned library
+    local library = {}
+
+    -- Alert helper
+    function library:Alert(message)
+        if CoreGui:FindFirstChild("Whitexhonen hub_ALERT") then
+            local af = CoreGui.Whitexhonen hub_ALERT
+            if af:FindFirstChild("Frame") then af.Frame:Destroy() end
+
+            local frame = Instance.new("Frame")
+            frame.Name = "Frame"
+            frame.Parent = af
+            frame.BackgroundColor3 = _G.Dark
+            frame.BackgroundTransparency = 0.1
+            frame.Position = UDim2.new(1, 0, 0, 0)
+            frame.Size = UDim2.new(0, 200, 0, 60)
+
+            local stroke = Instance.new("UIStroke")
+            stroke.Color = _G.Primary
+            stroke.Thickness = 1
+            stroke.Parent = frame
+
+            local icon = Instance.new("ImageLabel")
+            icon.Name = "Icon"
+            icon.Parent = frame
+            icon.BackgroundTransparency = 1
+            icon.Position = UDim2.new(0, 8, 0, 8)
+            icon.Size = UDim2.new(0, 45, 0, 45)
+            icon.Image = 'rbxassetid://13940080072'
+
+            local title = Instance.new("TextLabel")
+            title.Parent = frame
+            title.BackgroundTransparency = 1
+            title.Position = UDim2.new(0, 55, 0, 14)
+            title.Size = UDim2.new(0, 10, 0, 20)
+            title.Font = Enum.Font.GothamBold
+            title.Text = 'Relz Hub'
+            title.TextColor3 = Color3.fromRGB(255, 255, 255)
+            title.TextSize = 16
+            title.TextXAlignment = Enum.TextXAlignment.Left
+
+            local content = Instance.new("TextLabel")
+            content.Parent = frame
+            content.BackgroundTransparency = 1
+            content.Position = UDim2.new(0, 55, 0, 33)
+            content.Size = UDim2.new(0, 10, 0, 10)
+            content.Font = Enum.Font.GothamSemibold
+            content.TextTransparency = 0.3
+            content.Text = message
+            content.TextColor3 = Color3.fromRGB(200, 200, 200)
+            content.TextSize = 12
+            content.TextXAlignment = Enum.TextXAlignment.Left
+
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 5)
+            corner.Parent = frame
+
+            frame:TweenPosition(UDim2.new(1, -195, 0, 0), "Out", "Quad", 0.4, true)
+            delay(2, function()
+                frame:TweenPosition(UDim2.new(1, 0, 0, 0), "Out", "Quad", 0.5, true)
+                wait(0.6)
+                pcall(function() frame:Destroy() end)
+            end)
+        end
+    end
+
+    -- Tab factory
+    function library:Tab(tabName, tabIcon)
+        local tabButton = Instance.new("TextButton")
+        tabButton.Parent = leftScroll
+        tabButton.Name = tabName .. "Server"
+        tabButton.Text = ""
+        tabButton.BackgroundTransparency = 1
+        tabButton.Size = UDim2.new(1, 0, 0, 35)
+        tabButton.Font = Enum.Font.GothamSemibold
+        tabButton.TextSize = 12
+        tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+        local selectedBar = Instance.new("Frame")
+        selectedBar.Name = "SelectedTab"
+        selectedBar.Parent = tabButton
+        selectedBar.BackgroundColor3 = _G.Primary
+        selectedBar.Size = UDim2.new(0, 3, 0, 0)
+        selectedBar.Position = UDim2.new(0, 0, 0.5, 0)
+        selectedBar.AnchorPoint = Vector2.new(0, 0.5)
+        local selCorner = Instance.new("UICorner")
+        selCorner.CornerRadius = UDim.new(0, 100)
+        selCorner.Parent = selectedBar
+
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Parent = tabButton
+        titleLabel.Name = "Title"
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.Position = UDim2.new(0, 30, 0.5, 0)
+        titleLabel.Size = UDim2.new(0, 100, 0, 30)
+        titleLabel.Font = Enum.Font.GothamSemibold
+        titleLabel.Text = tabName
+        titleLabel.AnchorPoint = Vector2.new(0, 0.5)
+        titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        titleLabel.TextTransparency = 0.4
+        titleLabel.TextSize = 13
+        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+        local iconLabel = Instance.new("ImageLabel")
+        iconLabel.Name = "IDK"
+        iconLabel.Parent = tabButton
+        iconLabel.BackgroundTransparency = 1
+        iconLabel.ImageTransparency = 0.3
+        iconLabel.Position = UDim2.new(0, 7, 0.5, 0)
+        iconLabel.Size = UDim2.new(0, 15, 0, 15)
+        iconLabel.AnchorPoint = Vector2.new(0, 0.5)
+        iconLabel.Image = tabIcon or ""
+
+        local page = Instance.new("ScrollingFrame")
+        page.Parent = pageFolder
+        page.Name = tabName .. "_Page"
+        page.Active = true
+        page.BackgroundTransparency = 1
+        pagelocal Update = {}
+
+-- Theme setup (safe defaults)
+local function applyTheme()
+    local theme = _G.Theme
+    if theme == 'Red' then
+        _G.Primary = Color3.fromRGB(255, 30, 50)
+        _G.Dark = Color3.fromRGB(90, 10, 20)
+    elseif theme == 'Cyan' then
+        _G.Primary = Color3.fromRGB(40, 230, 255)
+        _G.Dark = Color3.fromRGB(10, 80, 115)
+    elseif theme == 'Blue' then
+        _G.Primary = Color3.fromRGB(40, 155, 255)
+        _G.Dark = Color3.fromRGB(10, 80, 115)
+    elseif theme == 'DarkBlue' then
+        _G.Primary = Color3.fromRGB(50, 30, 255)
+        _G.Dark = Color3.fromRGB(20, 10, 90)
+    elseif theme == 'Green' then
+        _G.Primary = Color3.fromRGB(70, 255, 205)
+        _G.Dark = Color3.fromRGB(20, 90, 90)
+    elseif theme == 'LightGreen' then
+        _G.Primary = Color3.fromRGB(205, 255, 205)
+        _G.Dark = Color3.fromRGB(70, 90, 70)
+    elseif theme == 'Purple' then
+        _G.Primary = Color3.fromRGB(205, 125, 255)
+        _G.Dark = Color3.fromRGB(60, 20, 95)
+    elseif theme == 'Zinc' then
+        _G.Primary = Color3.fromRGB(30, 30, 30)
+        _G.Dark = Color3.fromRGB(10, 10, 10)
+    else
+        _G.Primary = Color3.fromRGB(110, 110, 120)
+        _G.Dark = Color3.fromRGB(20, 20, 30)
+        if not _G.Theme then
+            warn("Theme not found, using default")
+        end
+    end
+end
+applyTheme()
+
+-- Services
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local TextService = game:GetService("TextService")
+
+-- Small floating toggle icon (top-left)
+local function createToggleIcon()
+    if CoreGui:FindFirstChild("Whitexhonen hub_TOGGLE") then
+        CoreGui.Whitexhonen hub_TOGGLE:Destroy()
+    end
+
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "Whitexhonen hub_TOGGLE"
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.Parent = CoreGui
+
+    local btn = Instance.new("ImageButton")
+    btn.Parent = gui
+    btn.Position = UDim2.new(0, 10, 0, 10)
+    btn.Size = UDim2.new(0, 50, 0, 50)
+    btn.Draggable = true
+    btn.BackgroundColor3 = _G.Dark
+    btn.ImageColor3 = _G.Primary
+    btn.ImageTransparency = 0.1
+    btn.BackgroundTransparency = 1
+    btn.Image = 'https://www.roblox.com/Thumbs/Asset.ashx?width=420&height=420&assetId=89080043654016'
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = _G.Primary
+    stroke.Thickness = 1
+    stroke.Parent = btn
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 5)
+    corner.Parent = btn
+
+    btn.MouseButton1Click:Connect(function()
+        local hub = CoreGui:FindFirstChild("Whitexhonen hub")
+        if hub and hub:IsA("ScreenGui") then
+            hub.Enabled = not hub.Enabled
+        end
+    end)
+end
+createToggleIcon()
+
+-- Draggable helper
+local function makeDraggable(hitArea, target)
+    local dragging = false
+    local dragStart, startPos, lastInput
+
+    local function update(input)
+        local delta = input.Position - dragStart
+        local newPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        TweenService:Create(target, TweenInfo.new(0.15), {Position = newPos}):Play()
+    end
+
+    hitArea.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = target.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    hitArea.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            lastInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == lastInput and dragging then
+            update(input)
+        end
+    end)
+end
+
+-- Main factory
+function Update:Window(patchText)
+    -- cleanup any previous GUIs
+    if CoreGui:FindFirstChild("Whitexhonen hub") then CoreGui.Whitexhonen hub:Destroy() end
+    if CoreGui:FindFirstChild("Whitexhonen hub_ALERT") then CoreGui.Whitexhonen hub_ALERT:Destroy() end
+
+    local alertGui = Instance.new("ScreenGui")
+    alertGui.Name = "Whitexhonen hub_ALERT"
+    alertGui.Parent = CoreGui
+    alertGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+
+    local hubGui = Instance.new("ScreenGui")
+    hubGui.Name = "Whitexhonen hub"
+    hubGui.Parent = CoreGui
+    hubGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+
+    -- main window
+    local main = Instance.new("Frame")
+    main.Name = "Main"
+    main.Parent = hubGui
+    main.AnchorPoint = Vector2.new(0.5, 0.5)
+    main.ClipsDescendants = true
+    main.BackgroundColor3 = _G.Dark
+    main.BackgroundTransparency = 0.1
+    main.Position = UDim2.new(0.5, 0, 0.5, 0)
+    main.Size = UDim2.new(0, 0, 0, 0)
+    main:TweenSize(UDim2.new(0, 524, 0, 332), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.4, true)
+
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = _G.Primary
+    mainStroke.Thickness = 1
+    mainStroke.Parent = main
+
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 5)
+    mainCorner.Parent = main
+
+    -- resize grip
+    local resizeGrip = Instance.new("Frame")
+    resizeGrip.Name = "DragButton"
+    resizeGrip.Parent = main
+    resizeGrip.Position = UDim2.new(1, 5, 1, 5)
+    resizeGrip.AnchorPoint = Vector2.new(1, 1)
+    resizeGrip.Size = UDim2.new(0, 15, 0, 15)
+    resizeGrip.BackgroundColor3 = _G.Primary
+    resizeGrip.BackgroundTransparency = 0.1
+    resizeGrip.ZIndex = 10
+    local gripCorner = Instance.new("UICorner")
+    gripCorner.CornerRadius = UDim.new(0, 99)
+    gripCorner.Parent = resizeGrip
+
+    -- top bar & title
+    local topBar = Instance.new("Frame")
+    topBar.Name = "Top"
+    topBar.Parent = main
+    topBar.BackgroundTransparency = 1
+    topBar.Size = UDim2.new(1, 0, 0, 40)
+    local topCorner = Instance.new("UICorner")
+    topCorner.CornerRadius = UDim.new(0, 5)
+    topCorner.Parent = topBar
+
+    local title = Instance.new("TextLabel")
+    title.Name = "ttittles"
+    title.Parent = topBar
+    title.BackgroundTransparency = 1
+    title.Position = UDim2.new(0, 15, 0.5, 0)
+    title.AnchorPoint = Vector2.new(0, 0.5)
+    title.Font = Enum.Font.GothamBold
+    title.Text = "Szoo PAID |"
+    title.TextSize = 15
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    local titleSize = TextService:GetTextSize(title.Text, title.TextSize, title.Font, Vector2.new(1e6, 1e6))
+    title.Size = UDim2.new(0, titleSize.X, 0, 25)
+
+    local patchLabel = Instance.new("TextLabel")
+    patchLabel.Name = "patch"
+    patchLabel.Parent = title
+    patchLabel.BackgroundTransparency = 1
+    patchLabel.Position = UDim2.new(1, 5, 0.5, 0)
+    patchLabel.AnchorPoint = Vector2.new(0, 0.5)
+    patchLabel.Font = Enum.Font.Gotham
+    patchLabel.Text = tostring(patchText or "")
+    patchLabel.TextSize = 15
+    patchLabel.TextColor3 = _G.Primary
+    local patchSize = TextService:GetTextSize(patchLabel.Text, patchLabel.TextSize, patchLabel.Font, Vector2.new(1e6, 1e6))
+    patchLabel.Size = UDim2.new(0, patchSize.X, 0, 25)
+
+    local hideBtn = Instance.new("ImageButton")
+    hideBtn.Name = "Hide"
+    hideBtn.Parent = topBar
+    hideBtn.AnchorPoint = Vector2.new(1, 0.5)
+    hideBtn.Position = UDim2.new(1, -10, 0.5, 0)
+    hideBtn.Size = UDim2.new(0, 25, 0, 25)
+    hideBtn.BackgroundTransparency = 1
+    hideBtn.Image = 'https://www.roblox.com/Thumbs/Asset.ashx?width=420&height=420&assetId=89080043654016'
+    hideBtn.ImageColor3 = Color3.fromRGB(245, 245, 245)
+    local hideCorner = Instance.new("UICorner")
+    hideCorner.CornerRadius = UDim.new(0, 3)
+    hideCorner.Parent = hideBtn
+    hideBtn.MouseButton1Click:Connect(function() hubGui.Enabled = not hubGui.Enabled end)
+
+    -- Transparency toggle button (turn off transparency)
+    local transparencyOff = false
+    local savedTransparencies = {}
+
+    local function setTransparencyOff(off)
+        if off then
+            -- Save current transparencies and set to opaque (0)
+            savedTransparencies = {}
+            for _, inst in pairs(hubGui:GetDescendants()) do
+                if inst:IsA("GuiObject") then
+                    -- save/restore via keys; use pcall to avoid errors for unexpected objects
+                    local entry = {}
+                    pcall(function() entry.BackgroundTransparency = inst.BackgroundTransparency end)
+                    pcall(function() entry.TextTransparency = inst.TextTransparency end)
+                    pcall(function() entry.ImageTransparency = inst.ImageTransparency end)
+                    savedTransparencies[inst] = entry
+                    pcall(function() inst.BackgroundTransparency = 0 end)
+                    pcall(function() inst.TextTransparency = 0 end)
+                    pcall(function() inst.ImageTransparency = 0 end)
+                end
+            end
+        else
+            -- Restore
+            for inst, vals in pairs(savedTransparencies) do
+                if inst and inst.Parent then
+                    pcall(function()
+                        if vals.BackgroundTransparency ~= nil then inst.BackgroundTransparency = vals.BackgroundTransparency end
+                        if vals.TextTransparency ~= nil then inst.TextTransparency = vals.TextTransparency end
+                        if vals.ImageTransparency ~= nil then inst.ImageTransparency = vals.ImageTransparency end
+                    end)
+                end
+            end
+            savedTransparencies = {}
+        end
+    end
+
+    local transparencyBtn = Instance.new("TextButton")
+    transparencyBtn.Name = "TransparencyToggle"
+    transparencyBtn.Parent = topBar
+    transparencyBtn.AnchorPoint = Vector2.new(1, 0.5)
+    transparencyBtn.Position = UDim2.new(1, -42, 0.5, 0) -- left of hideBtn
+    transparencyBtn.Size = UDim2.new(0, 30, 0, 22)
+    transparencyBtn.BackgroundTransparency = 0.2
+    transparencyBtn.BackgroundColor3 = _G.Primary
+    transparencyBtn.Font = Enum.Font.GothamSemibold
+    transparencyBtn.TextSize = 10
+    transparencyBtn.Text = "OPA"
+    transparencyBtn.TextColor3 = Color3.fromRGB(245,245,245)
+    local tcorner = Instance.new("UICorner"); tcorner.CornerRadius = UDim.new(0,3); tcorner.Parent = transparencyBtn
+
+    transparencyBtn.MouseButton1Click:Connect(function()
+        transparencyOff = not transparencyOff
+        if transparencyOff then
+            transparencyBtn.Text = "OPN"
+            setTransparencyOff(true)
+        else
+            transparencyBtn.Text = "OPA"
+            setTransparencyOff(false)
+        end
+    end)
+
+    -- left tabs
+    local leftTabFrame = Instance.new("Frame")
+    leftTabFrame.Name = "Tab"
+    leftTabFrame.Parent = main
+    leftTabFrame.BackgroundTransparency = 1
+    leftTabFrame.Position = UDim2.new(0, 8, 0, 45)
+    leftTabFrame.Size = UDim2.new(0, 148, 0, 275)
+
+    local leftScroll = Instance.new("ScrollingFrame")
+    leftScroll.Name = "ScrollTab"
+    leftScroll.Parent = leftTabFrame
+    leftScroll.Active = true
+    leftScroll.BackgroundTransparency = 1
+    leftScroll.Size = UDim2.new(1, 0, 1, 0)
+    leftScroll.ScrollBarThickness = 0
+
+    local leftCorner = Instance.new("UICorner")
+    leftCorner.Parent = leftTabFrame
+    leftCorner.CornerRadius = UDim.new(0, 5)
+
+    local leftList = Instance.new("UIListLayout")
+    leftList.Parent = leftScroll
+    leftList.SortOrder = Enum.SortOrder.LayoutOrder
+    leftList.Padding = UDim.new(0, 2)
+
+    local leftPadding = Instance.new("UIPadding")
+    leftPadding.Parent = leftScroll
+
+    -- right pages
+    local rightPageFrame = Instance.new("Frame")
+    rightPageFrame.Name = "Page"
+    rightPageFrame.Parent = main
+    rightPageFrame.BackgroundTransparency = 1
+    rightPageFrame.Position = UDim2.new(0, 166, 0, 45)
+    rightPageFrame.Size = UDim2.new(0, 350, 0, 275)
+
+    local rightCorner = Instance.new("UICorner")
+    rightCorner.Parent = rightPageFrame
+    rightCorner.CornerRadius = UDim.new(0, 3)
+
+    local mainPage = Instance.new("Frame")
+    mainPage.Name = "MainPage"
+    mainPage.Parent = rightPageFrame
+    mainPage.BackgroundTransparency = 1
+    mainPage.ClipsDescendants = true
+    mainPage.Size = UDim2.new(1, 0, 1, 0)
+
+    local pageFolder = Instance.new("Folder")
+    pageFolder.Name = "PageList"
+    pageFolder.Parent = mainPage
+
+    local uiPageLayout = Instance.new("UIPageLayout")
+    uiPageLayout.Parent = pageFolder
+    uiPageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    uiPageLayout.EasingDirection = Enum.EasingDirection.InOut
+    uiPageLayout.EasingStyle = Enum.EasingStyle.Quad
+    uiPageLayout.FillDirection = Enum.FillDirection.Vertical
+    uiPageLayout.Padding = UDim.new(0, 10)
+    uiPageLayout.TweenTime = 0
+    uiPageLayout.GamepadInputEnabled = false
+    uiPageLayout.ScrollWheelInputEnabled = false
+    uiPageLayout.TouchInputEnabled = false
+
+    -- make draggable
+    makeDraggable(topBar, main)
+
+    -- Toggle visibility with Insert
+    UserInputService.InputBegan:Connect(function(input)
+        if input.KeyCode == Enum.KeyCode.Insert then
+            hubGui.Enabled = not hubGui.Enabled
+        end
+    end)
+
+    -- resize logic
+    local resizing = false
+    resizeGrip.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            resizing = true
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            resizing = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            main.Size = UDim2.new(0, math.clamp(input.Position.X - main.AbsolutePosition.X, 524, math.huge), 0, math.clamp(input.Position.Y - main.AbsolutePosition.Y, 332, math.huge))
+            rightPageFrame.Size = UDim2.new(0, math.clamp(input.Position.X - rightPageFrame.AbsolutePosition.X - 8, 350, math.huge), 0, math.clamp(input.Position.Y - rightPageFrame.AbsolutePosition.Y - 8, 270, math.huge))
+            leftTabFrame.Size = UDim2.new(0, 148, 0, math.clamp(input.Position.Y - leftTabFrame.AbsolutePosition.Y - 8, 270, math.huge))
+        end
+    end)
+
+    -- keep canvas sizes updated
+    RunService.Stepped:Connect(function()
+        pcall(function()
+            for _, p in pairs(pageFolder:GetChildren()) do
+                if p:IsA("ScrollingFrame") then
+                    local layout = p:FindFirstChildOfClass("UIListLayout")
+                    if layout then
+                        p.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
+                    end
+                end
+            end
+            leftScroll.CanvasSize = UDim2.new(0, 0, 0, leftList.AbsoluteContentSize.Y)
+        end)
+    end)
+
+    -- returned library
+    local library = {}
+
+    -- Alert helper
+    function library:Alert(message)
+        if CoreGui:FindFirstChild("Whitexhonen hub_ALERT") then
+            local af = CoreGui.Whitexhonen hub_ALERT
+            if af:FindFirstChild("Frame") then af.Frame:Destroy() end
+
+            local frame = Instance.new("Frame")
+            frame.Name = "Frame"
+            frame.Parent = af
+            frame.BackgroundColor3 = _G.Dark
+            frame.BackgroundTransparency = 0.1
+            frame.Position = UDim2.new(1, 0, 0, 0)
+            frame.Size = UDim2.new(0, 200, 0, 60)
+
+            local stroke = Instance.new("UIStroke")
+            stroke.Color = _G.Primary
+            stroke.Thickness = 1
+            stroke.Parent = frame
+
+            local icon = Instance.new("ImageLabel")
+            icon.Name = "Icon"
+            icon.Parent = frame
+            icon.BackgroundTransparency = 1
+            icon.Position = UDim2.new(0, 8, 0, 8)
+            icon.Size = UDim2.new(0, 45, 0, 45)
+            icon.Image = 'rbxassetid://13940080072'
+
+            local title = Instance.new("TextLabel")
+            title.Parent = frame
+            title.BackgroundTransparency = 1
+            title.Position = UDim2.new(0, 55, 0, 14)
+            title.Size = UDim2.new(0, 10, 0, 20)
+            title.Font = Enum.Font.GothamBold
+            title.Text = 'Relz Hub'
+            title.TextColor3 = Color3.fromRGB(255, 255, 255)
+            title.TextSize = 16
+            title.TextXAlignment = Enum.TextXAlignment.Left
+
+            local content = Instance.new("TextLabel")
+            content.Parent = frame
+            content.BackgroundTransparency = 1
+            content.Position = UDim2.new(0, 55, 0, 33)
+            content.Size = UDim2.new(0, 10, 0, 10)
+            content.Font = Enum.Font.GothamSemibold
+            content.TextTransparency = 0.3
+            content.Text = message
+            content.TextColor3 = Color3.fromRGB(200, 200, 200)
+            content.TextSize = 12
+            content.TextXAlignment = Enum.TextXAlignment.Left
+
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 5)
+            corner.Parent = frame
+
+            frame:TweenPosition(UDim2.new(1, -195, 0, 0), "Out", "Quad", 0.4, true)
+            delay(2, function()
+                frame:TweenPosition(UDim2.new(1, 0, 0, 0), "Out", "Quad", 0.5, true)
+                wait(0.6)
+                pcall(function() frame:Destroy() end)
+            end)
+        end
+    end
+
+    -- Tab factory
+    function library:Tab(tabName, tabIcon)
+        local tabButton = Instance.new("TextButton")
+        tabButton.Parent = leftScroll
+        tabButton.Name = tabName .. "Server"
+        tabButton.Text = ""
+        tabButton.BackgroundTransparency = 1
+        tabButton.Size = UDim2.new(1, 0, 0, 35)
+        tabButton.Font = Enum.Font.GothamSemibold
+        tabButton.TextSize = 12
+        tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+        local selectedBar = Instance.new("Frame")
+        selectedBar.Name = "SelectedTab"
+        selectedBar.Parent = tabButton
+        selectedBar.BackgroundColor3 = _G.Primary
+        selectedBar.Size = UDim2.new(0, 3, 0, 0)
+        selectedBar.Position = UDim2.new(0, 0, 0.5, 0)
+        selectedBar.AnchorPoint = Vector2.new(0, 0.5)
+        local selCorner = Instance.new("UICorner")
+        selCorner.CornerRadius = UDim.new(0, 100)
+        selCorner.Parent = selectedBar
+
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Parent = tabButton
+        titleLabel.Name = "Title"
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.Position = UDim2.new(0, 30, 0.5, 0)
+        titleLabel.Size = UDim2.new(0, 100, 0, 30)
+        titleLabel.Font = Enum.Font.GothamSemibold
+        titleLabel.Text = tabName
+        titleLabel.AnchorPoint = Vector2.new(0, 0.5)
+        titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        titleLabel.TextTransparency = 0.4
+        titleLabel.TextSize = 13
+        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+        local iconLabel = Instance.new("ImageLabel")
+        iconLabel.Name = "IDK"
+        iconLabel.Parent = tabButton
+        iconLabel.BackgroundTransparency = 1
+        iconLabel.ImageTransparency = 0.3
+        iconLabel.Position = UDim2.new(0, 7, 0.5, 0)
+        iconLabel.Size = UDim2.new(0, 15, 0, 15)
+        iconLabel.AnchorPoint = Vector2.new(0, 0.5)
+        iconLabel.Image = tabIcon or ""
+
+        local page = Instance.new("ScrollingFrame")
+        page.Parent = pageFolder
+        page.Name = tabName .. "_Page"
+        page.Active = true
+        page.BackgroundTransparency = 1
+        pagelocal Update = {}
+
+-- Theme setup (safe defaults)
+local function applyTheme()
+    local theme = _G.Theme
+    if theme == 'Red' then
+        _G.Primary = Color3.fromRGB(255, 30, 50)
+        _G.Dark = Color3.fromRGB(90, 10, 20)
+    elseif theme == 'Cyan' then
+        _G.Primary = Color3.fromRGB(40, 230, 255)
+        _G.Dark = Color3.fromRGB(10, 80, 115)
+    elseif theme == 'Blue' then
+        _G.Primary = Color3.fromRGB(40, 155, 255)
+        _G.Dark = Color3.fromRGB(10, 80, 115)
+    elseif theme == 'DarkBlue' then
+        _G.Primary = Color3.fromRGB(50, 30, 255)
+        _G.Dark = Color3.fromRGB(20, 10, 90)
+    elseif theme == 'Green' then
+        _G.Primary = Color3.fromRGB(70, 255, 205)
+        _G.Dark = Color3.fromRGB(20, 90, 90)
+    elseif theme == 'LightGreen' then
+        _G.Primary = Color3.fromRGB(205, 255, 205)
+        _G.Dark = Color3.fromRGB(70, 90, 70)
+    elseif theme == 'Purple' then
+        _G.Primary = Color3.fromRGB(205, 125, 255)
+        _G.Dark = Color3.fromRGB(60, 20, 95)
+    elseif theme == 'Zinc' then
+        _G.Primary = Color3.fromRGB(30, 30, 30)
+        _G.Dark = Color3.fromRGB(10, 10, 10)
+    else
+        _G.Primary = Color3.fromRGB(110, 110, 120)
+        _G.Dark = Color3.fromRGB(20, 20, 30)
+        if not _G.Theme then
+            warn("Theme not found, using default")
+        end
+    end
+end
+applyTheme()
+
+-- Services
+local CoreGui = game:GetService("CoreGui")
+local UserInputService = game:GetService("UserInputService")
+local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
+local TextService = game:GetService("TextService")
+
+-- Small floating toggle icon (top-left)
+local function createToggleIcon()
+    if CoreGui:FindFirstChild("Whitexhonen hub_TOGGLE") then
+        CoreGui.Whitexhonen hub_TOGGLE:Destroy()
+    end
+
+    local gui = Instance.new("ScreenGui")
+    gui.Name = "Whitexhonen hub_TOGGLE"
+    gui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    gui.Parent = CoreGui
+
+    local btn = Instance.new("ImageButton")
+    btn.Parent = gui
+    btn.Position = UDim2.new(0, 10, 0, 10)
+    btn.Size = UDim2.new(0, 50, 0, 50)
+    btn.Draggable = true
+    btn.BackgroundColor3 = _G.Dark
+    btn.ImageColor3 = _G.Primary
+    btn.ImageTransparency = 0.1
+    btn.BackgroundTransparency = 1
+    btn.Image = 'https://www.roblox.com/Thumbs/Asset.ashx?width=420&height=420&assetId=89080043654016'
+
+    local stroke = Instance.new("UIStroke")
+    stroke.Color = _G.Primary
+    stroke.Thickness = 1
+    stroke.Parent = btn
+
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 5)
+    corner.Parent = btn
+
+    btn.MouseButton1Click:Connect(function()
+        local hub = CoreGui:FindFirstChild("Whitexhonen hub")
+        if hub and hub:IsA("ScreenGui") then
+            hub.Enabled = not hub.Enabled
+        end
+    end)
+end
+createToggleIcon()
+
+-- Draggable helper
+local function makeDraggable(hitArea, target)
+    local dragging = false
+    local dragStart, startPos, lastInput
+
+    local function update(input)
+        local delta = input.Position - dragStart
+        local newPos = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        TweenService:Create(target, TweenInfo.new(0.15), {Position = newPos}):Play()
+    end
+
+    hitArea.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = target.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then
+                    dragging = false
+                end
+            end)
+        end
+    end)
+
+    hitArea.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            lastInput = input
+        end
+    end)
+
+    UserInputService.InputChanged:Connect(function(input)
+        if input == lastInput and dragging then
+            update(input)
+        end
+    end)
+end
+
+-- Main factory
+function Update:Window(patchText)
+    -- cleanup any previous GUIs
+    if CoreGui:FindFirstChild("Whitexhonen hub") then CoreGui.Whitexhonen hub:Destroy() end
+    if CoreGui:FindFirstChild("Whitexhonen hub_ALERT") then CoreGui.Whitexhonen hub_ALERT:Destroy() end
+
+    local alertGui = Instance.new("ScreenGui")
+    alertGui.Name = "Whitexhonen hub_ALERT"
+    alertGui.Parent = CoreGui
+    alertGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+
+    local hubGui = Instance.new("ScreenGui")
+    hubGui.Name = "Whitexhonen hub"
+    hubGui.Parent = CoreGui
+    hubGui.ZIndexBehavior = Enum.ZIndexBehavior.Global
+
+    -- main window
+    local main = Instance.new("Frame")
+    main.Name = "Main"
+    main.Parent = hubGui
+    main.AnchorPoint = Vector2.new(0.5, 0.5)
+    main.ClipsDescendants = true
+    main.BackgroundColor3 = _G.Dark
+    main.BackgroundTransparency = 0.1
+    main.Position = UDim2.new(0.5, 0, 0.5, 0)
+    main.Size = UDim2.new(0, 0, 0, 0)
+    main:TweenSize(UDim2.new(0, 524, 0, 332), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.4, true)
+
+    local mainStroke = Instance.new("UIStroke")
+    mainStroke.Color = _G.Primary
+    mainStroke.Thickness = 1
+    mainStroke.Parent = main
+
+    local mainCorner = Instance.new("UICorner")
+    mainCorner.CornerRadius = UDim.new(0, 5)
+    mainCorner.Parent = main
+
+    -- resize grip
+    local resizeGrip = Instance.new("Frame")
+    resizeGrip.Name = "DragButton"
+    resizeGrip.Parent = main
+    resizeGrip.Position = UDim2.new(1, 5, 1, 5)
+    resizeGrip.AnchorPoint = Vector2.new(1, 1)
+    resizeGrip.Size = UDim2.new(0, 15, 0, 15)
+    resizeGrip.BackgroundColor3 = _G.Primary
+    resizeGrip.BackgroundTransparency = 0.1
+    resizeGrip.ZIndex = 10
+    local gripCorner = Instance.new("UICorner")
+    gripCorner.CornerRadius = UDim.new(0, 99)
+    gripCorner.Parent = resizeGrip
+
+    -- top bar & title
+    local topBar = Instance.new("Frame")
+    topBar.Name = "Top"
+    topBar.Parent = main
+    topBar.BackgroundTransparency = 1
+    topBar.Size = UDim2.new(1, 0, 0, 40)
+    local topCorner = Instance.new("UICorner")
+    topCorner.CornerRadius = UDim.new(0, 5)
+    topCorner.Parent = topBar
+
+    local title = Instance.new("TextLabel")
+    title.Name = "ttittles"
+    title.Parent = topBar
+    title.BackgroundTransparency = 1
+    title.Position = UDim2.new(0, 15, 0.5, 0)
+    title.AnchorPoint = Vector2.new(0, 0.5)
+    title.Font = Enum.Font.GothamBold
+    title.Text = "Szoo PAID |"
+    title.TextSize = 15
+    title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    title.TextXAlignment = Enum.TextXAlignment.Left
+    local titleSize = TextService:GetTextSize(title.Text, title.TextSize, title.Font, Vector2.new(1e6, 1e6))
+    title.Size = UDim2.new(0, titleSize.X, 0, 25)
+
+    local patchLabel = Instance.new("TextLabel")
+    patchLabel.Name = "patch"
+    patchLabel.Parent = title
+    patchLabel.BackgroundTransparency = 1
+    patchLabel.Position = UDim2.new(1, 5, 0.5, 0)
+    patchLabel.AnchorPoint = Vector2.new(0, 0.5)
+    patchLabel.Font = Enum.Font.Gotham
+    patchLabel.Text = tostring(patchText or "")
+    patchLabel.TextSize = 15
+    patchLabel.TextColor3 = _G.Primary
+    local patchSize = TextService:GetTextSize(patchLabel.Text, patchLabel.TextSize, patchLabel.Font, Vector2.new(1e6, 1e6))
+    patchLabel.Size = UDim2.new(0, patchSize.X, 0, 25)
+
+    local hideBtn = Instance.new("ImageButton")
+    hideBtn.Name = "Hide"
+    hideBtn.Parent = topBar
+    hideBtn.AnchorPoint = Vector2.new(1, 0.5)
+    hideBtn.Position = UDim2.new(1, -10, 0.5, 0)
+    hideBtn.Size = UDim2.new(0, 25, 0, 25)
+    hideBtn.BackgroundTransparency = 1
+    hideBtn.Image = 'https://www.roblox.com/Thumbs/Asset.ashx?width=420&height=420&assetId=89080043654016'
+    hideBtn.ImageColor3 = Color3.fromRGB(245, 245, 245)
+    local hideCorner = Instance.new("UICorner")
+    hideCorner.CornerRadius = UDim.new(0, 3)
+    hideCorner.Parent = hideBtn
+    hideBtn.MouseButton1Click:Connect(function() hubGui.Enabled = not hubGui.Enabled end)
+
+    -- Transparency toggle button (turn off transparency)
+    local transparencyOff = false
+    local savedTransparencies = {}
+
+    local function setTransparencyOff(off)
+        if off then
+            -- Save current transparencies and set to opaque (0)
+            savedTransparencies = {}
+            for _, inst in pairs(hubGui:GetDescendants()) do
+                if inst:IsA("GuiObject") then
+                    -- save/restore via keys; use pcall to avoid errors for unexpected objects
+                    local entry = {}
+                    pcall(function() entry.BackgroundTransparency = inst.BackgroundTransparency end)
+                    pcall(function() entry.TextTransparency = inst.TextTransparency end)
+                    pcall(function() entry.ImageTransparency = inst.ImageTransparency end)
+                    savedTransparencies[inst] = entry
+                    pcall(function() inst.BackgroundTransparency = 0 end)
+                    pcall(function() inst.TextTransparency = 0 end)
+                    pcall(function() inst.ImageTransparency = 0 end)
+                end
+            end
+        else
+            -- Restore
+            for inst, vals in pairs(savedTransparencies) do
+                if inst and inst.Parent then
+                    pcall(function()
+                        if vals.BackgroundTransparency ~= nil then inst.BackgroundTransparency = vals.BackgroundTransparency end
+                        if vals.TextTransparency ~= nil then inst.TextTransparency = vals.TextTransparency end
+                        if vals.ImageTransparency ~= nil then inst.ImageTransparency = vals.ImageTransparency end
+                    end)
+                end
+            end
+            savedTransparencies = {}
+        end
+    end
+
+    local transparencyBtn = Instance.new("TextButton")
+    transparencyBtn.Name = "TransparencyToggle"
+    transparencyBtn.Parent = topBar
+    transparencyBtn.AnchorPoint = Vector2.new(1, 0.5)
+    transparencyBtn.Position = UDim2.new(1, -42, 0.5, 0) -- left of hideBtn
+    transparencyBtn.Size = UDim2.new(0, 30, 0, 22)
+    transparencyBtn.BackgroundTransparency = 0.2
+    transparencyBtn.BackgroundColor3 = _G.Primary
+    transparencyBtn.Font = Enum.Font.GothamSemibold
+    transparencyBtn.TextSize = 10
+    transparencyBtn.Text = "OPA"
+    transparencyBtn.TextColor3 = Color3.fromRGB(245,245,245)
+    local tcorner = Instance.new("UICorner"); tcorner.CornerRadius = UDim.new(0,3); tcorner.Parent = transparencyBtn
+
+    transparencyBtn.MouseButton1Click:Connect(function()
+        transparencyOff = not transparencyOff
+        if transparencyOff then
+            transparencyBtn.Text = "OPN"
+            setTransparencyOff(true)
+        else
+            transparencyBtn.Text = "OPA"
+            setTransparencyOff(false)
+        end
+    end)
+
+    -- left tabs
+    local leftTabFrame = Instance.new("Frame")
+    leftTabFrame.Name = "Tab"
+    leftTabFrame.Parent = main
+    leftTabFrame.BackgroundTransparency = 1
+    leftTabFrame.Position = UDim2.new(0, 8, 0, 45)
+    leftTabFrame.Size = UDim2.new(0, 148, 0, 275)
+
+    local leftScroll = Instance.new("ScrollingFrame")
+    leftScroll.Name = "ScrollTab"
+    leftScroll.Parent = leftTabFrame
+    leftScroll.Active = true
+    leftScroll.BackgroundTransparency = 1
+    leftScroll.Size = UDim2.new(1, 0, 1, 0)
+    leftScroll.ScrollBarThickness = 0
+
+    local leftCorner = Instance.new("UICorner")
+    leftCorner.Parent = leftTabFrame
+    leftCorner.CornerRadius = UDim.new(0, 5)
+
+    local leftList = Instance.new("UIListLayout")
+    leftList.Parent = leftScroll
+    leftList.SortOrder = Enum.SortOrder.LayoutOrder
+    leftList.Padding = UDim.new(0, 2)
+
+    local leftPadding = Instance.new("UIPadding")
+    leftPadding.Parent = leftScroll
+
+    -- right pages
+    local rightPageFrame = Instance.new("Frame")
+    rightPageFrame.Name = "Page"
+    rightPageFrame.Parent = main
+    rightPageFrame.BackgroundTransparency = 1
+    rightPageFrame.Position = UDim2.new(0, 166, 0, 45)
+    rightPageFrame.Size = UDim2.new(0, 350, 0, 275)
+
+    local rightCorner = Instance.new("UICorner")
+    rightCorner.Parent = rightPageFrame
+    rightCorner.CornerRadius = UDim.new(0, 3)
+
+    local mainPage = Instance.new("Frame")
+    mainPage.Name = "MainPage"
+    mainPage.Parent = rightPageFrame
+    mainPage.BackgroundTransparency = 1
+    mainPage.ClipsDescendants = true
+    mainPage.Size = UDim2.new(1, 0, 1, 0)
+
+    local pageFolder = Instance.new("Folder")
+    pageFolder.Name = "PageList"
+    pageFolder.Parent = mainPage
+
+    local uiPageLayout = Instance.new("UIPageLayout")
+    uiPageLayout.Parent = pageFolder
+    uiPageLayout.SortOrder = Enum.SortOrder.LayoutOrder
+    uiPageLayout.EasingDirection = Enum.EasingDirection.InOut
+    uiPageLayout.EasingStyle = Enum.EasingStyle.Quad
+    uiPageLayout.FillDirection = Enum.FillDirection.Vertical
+    uiPageLayout.Padding = UDim.new(0, 10)
+    uiPageLayout.TweenTime = 0
+    uiPageLayout.GamepadInputEnabled = false
+    uiPageLayout.ScrollWheelInputEnabled = false
+    uiPageLayout.TouchInputEnabled = false
+
+    -- make draggable
+    makeDraggable(topBar, main)
+
+    -- Toggle visibility with Insert
+    UserInputService.InputBegan:Connect(function(input)
+        if input.KeyCode == Enum.KeyCode.Insert then
+            hubGui.Enabled = not hubGui.Enabled
+        end
+    end)
+
+    -- resize logic
+    local resizing = false
+    resizeGrip.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            resizing = true
+        end
+    end)
+    UserInputService.InputEnded:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            resizing = false
+        end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if resizing and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+            main.Size = UDim2.new(0, math.clamp(input.Position.X - main.AbsolutePosition.X, 524, math.huge), 0, math.clamp(input.Position.Y - main.AbsolutePosition.Y, 332, math.huge))
+            rightPageFrame.Size = UDim2.new(0, math.clamp(input.Position.X - rightPageFrame.AbsolutePosition.X - 8, 350, math.huge), 0, math.clamp(input.Position.Y - rightPageFrame.AbsolutePosition.Y - 8, 270, math.huge))
+            leftTabFrame.Size = UDim2.new(0, 148, 0, math.clamp(input.Position.Y - leftTabFrame.AbsolutePosition.Y - 8, 270, math.huge))
+        end
+    end)
+
+    -- keep canvas sizes updated
+    RunService.Stepped:Connect(function()
+        pcall(function()
+            for _, p in pairs(pageFolder:GetChildren()) do
+                if p:IsA("ScrollingFrame") then
+                    local layout = p:FindFirstChildOfClass("UIListLayout")
+                    if layout then
+                        p.CanvasSize = UDim2.new(0, 0, 0, layout.AbsoluteContentSize.Y)
+                    end
+                end
+            end
+            leftScroll.CanvasSize = UDim2.new(0, 0, 0, leftList.AbsoluteContentSize.Y)
+        end)
+    end)
+
+    -- returned library
+    local library = {}
+
+    -- Alert helper
+    function library:Alert(message)
+        if CoreGui:FindFirstChild("Whitexhonen hub_ALERT") then
+            local af = CoreGui.Whitexhonen hub_ALERT
+            if af:FindFirstChild("Frame") then af.Frame:Destroy() end
+
+            local frame = Instance.new("Frame")
+            frame.Name = "Frame"
+            frame.Parent = af
+            frame.BackgroundColor3 = _G.Dark
+            frame.BackgroundTransparency = 0.1
+            frame.Position = UDim2.new(1, 0, 0, 0)
+            frame.Size = UDim2.new(0, 200, 0, 60)
+
+            local stroke = Instance.new("UIStroke")
+            stroke.Color = _G.Primary
+            stroke.Thickness = 1
+            stroke.Parent = frame
+
+            local icon = Instance.new("ImageLabel")
+            icon.Name = "Icon"
+            icon.Parent = frame
+            icon.BackgroundTransparency = 1
+            icon.Position = UDim2.new(0, 8, 0, 8)
+            icon.Size = UDim2.new(0, 45, 0, 45)
+            icon.Image = 'rbxassetid://13940080072'
+
+            local title = Instance.new("TextLabel")
+            title.Parent = frame
+            title.BackgroundTransparency = 1
+            title.Position = UDim2.new(0, 55, 0, 14)
+            title.Size = UDim2.new(0, 10, 0, 20)
+            title.Font = Enum.Font.GothamBold
+            title.Text = 'Relz Hub'
+            title.TextColor3 = Color3.fromRGB(255, 255, 255)
+            title.TextSize = 16
+            title.TextXAlignment = Enum.TextXAlignment.Left
+
+            local content = Instance.new("TextLabel")
+            content.Parent = frame
+            content.BackgroundTransparency = 1
+            content.Position = UDim2.new(0, 55, 0, 33)
+            content.Size = UDim2.new(0, 10, 0, 10)
+            content.Font = Enum.Font.GothamSemibold
+            content.TextTransparency = 0.3
+            content.Text = message
+            content.TextColor3 = Color3.fromRGB(200, 200, 200)
+            content.TextSize = 12
+            content.TextXAlignment = Enum.TextXAlignment.Left
+
+            local corner = Instance.new("UICorner")
+            corner.CornerRadius = UDim.new(0, 5)
+            corner.Parent = frame
+
+            frame:TweenPosition(UDim2.new(1, -195, 0, 0), "Out", "Quad", 0.4, true)
+            delay(2, function()
+                frame:TweenPosition(UDim2.new(1, 0, 0, 0), "Out", "Quad", 0.5, true)
+                wait(0.6)
+                pcall(function() frame:Destroy() end)
+            end)
+        end
+    end
+
+    -- Tab factory
+    function library:Tab(tabName, tabIcon)
+        local tabButton = Instance.new("TextButton")
+        tabButton.Parent = leftScroll
+        tabButton.Name = tabName .. "Server"
+        tabButton.Text = ""
+        tabButton.BackgroundTransparency = 1
+        tabButton.Size = UDim2.new(1, 0, 0, 35)
+        tabButton.Font = Enum.Font.GothamSemibold
+        tabButton.TextSize = 12
+        tabButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+
+        local selectedBar = Instance.new("Frame")
+        selectedBar.Name = "SelectedTab"
+        selectedBar.Parent = tabButton
+        selectedBar.BackgroundColor3 = _G.Primary
+        selectedBar.Size = UDim2.new(0, 3, 0, 0)
+        selectedBar.Position = UDim2.new(0, 0, 0.5, 0)
+        selectedBar.AnchorPoint = Vector2.new(0, 0.5)
+        local selCorner = Instance.new("UICorner")
+        selCorner.CornerRadius = UDim.new(0, 100)
+        selCorner.Parent = selectedBar
+
+        local titleLabel = Instance.new("TextLabel")
+        titleLabel.Parent = tabButton
+        titleLabel.Name = "Title"
+        titleLabel.BackgroundTransparency = 1
+        titleLabel.Position = UDim2.new(0, 30, 0.5, 0)
+        titleLabel.Size = UDim2.new(0, 100, 0, 30)
+        titleLabel.Font = Enum.Font.GothamSemibold
+        titleLabel.Text = tabName
+        titleLabel.AnchorPoint = Vector2.new(0, 0.5)
+        titleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+        titleLabel.TextTransparency = 0.4
+        titleLabel.TextSize = 13
+        titleLabel.TextXAlignment = Enum.TextXAlignment.Left
+
+        local iconLabel = Instance.new("ImageLabel")
+        iconLabel.Name = "IDK"
+        iconLabel.Parent = tabButton
+        iconLabel.BackgroundTransparency = 1
+        iconLabel.ImageTransparency = 0.3
+        iconLabel.Position = UDim2.new(0, 7, 0.5, 0)
+        iconLabel.Size = UDim2.new(0, 15, 0, 15)
+        iconLabel.AnchorPoint = Vector2.new(0, 0.5)
+        iconLabel.Image = tabIcon or ""
+
+        local page = Instance.new("ScrollingFrame")
+        page.Parent = pageFolder
+        page.Name = tabName .. "_Page"
+        page.Active = true
+        page.BackgroundTransparency = 1
+        page
